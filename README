@@ -1,4 +1,4 @@
-Peppy Meter
+Peppy ALSA Plugin
 
 This is ALSA plugin with the following functionality:
 - Sends VU Meter data to the named pipe. The default pipe name is 
