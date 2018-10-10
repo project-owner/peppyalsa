@@ -592,7 +592,7 @@ PACKAGE_STRING='pimeter 0.44'
 PACKAGE_BUGREPORT=''
 PACKAGE_URL=''
 
-ac_unique_file="src/peppyaudio.c"
+ac_unique_file="src/peppyalsa.c"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>

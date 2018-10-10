@@ -28,25 +28,8 @@
 * <http://www.gnu.org/licenses/>.
 */
 
-#ifndef PEPPYALSA_HEADER
-#define PEPPYALSA_HEADER
+#include "peppyalsa.h"
 
-#include <alsa/asoundlib.h>
+#define DEFAULT_METER_MAX 100
 
-typedef struct _snd_pcm_scope_peppyalsa_channel {
-  int16_t levelchan;
-} snd_pcm_scope_peppyalsa_channel_t;
-
-typedef struct _snd_pcm_scope_peppyalsa {
-  snd_pcm_t *pcm;
-  snd_pcm_scope_t *s16;
-  snd_pcm_scope_peppyalsa_channel_t *channels;
-  snd_pcm_uframes_t old;
-  unsigned int decay_ms;
-} snd_pcm_scope_peppyalsa_t;
-
-typedef struct device {
-	int (*init)(const char *name, int max, int show, int size);
-	void (*update)(int left, int right, snd_pcm_scope_peppyalsa_t *level);
-} device;
-#endif
+device meter();

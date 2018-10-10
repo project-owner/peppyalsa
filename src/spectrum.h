@@ -30,8 +30,7 @@
 
 #include "peppyalsa.h"
 
-#define DEFAULT_FIFO_MAX_VALUE 100
-#define DEFAULT_FIFO_RESAMPLER 1
-static const char DEFAULT_FIFO_VU_NAME[] = "/home/pi/myfifo";
+#define DEFAULT_SPECTRUM_MAX 100
+#define DEFAULT_SPECTRUM_SIZE 11
 
-device fifo();
+device spectrum();

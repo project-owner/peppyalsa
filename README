@@ -3,6 +3,9 @@ Peppy ALSA Plugin
 This is ALSA plugin with the following functionality:
 - Sends VU Meter data to the named pipe. The default pipe name is 
   /home/pi/myfifo
+- Sends Spectrum Analizer data to the named pipe. The default pipe name
+  is /home/pi/myfifosa
 
-More details can be found on the following wiki page:
+ More details can be found on the following wiki page:
 https://github.com/project-owner/peppyalsa/wiki
+  

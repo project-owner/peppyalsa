@@ -38,10 +38,8 @@
 
 static char *mypipe;
 static int fifo_fd = -1;
-static int fifo_max_value;
-static unsigned int vu_resampler;
-static int show_vu_meter = 0;
-static unsigned int vu_sample_counter = 0;
+static int meter_max;
+static int meter_show = 0;
 static char *left =  "L: ";
 static char *right = "R: ";
 
@@ -63,31 +61,20 @@ static void print_vu_meter_ch(char *label, int value) {
 	fflush(stdout);	
 }
 
-static void print_vu_meter(int left_ch, int right_ch) {
-	print_vu_meter_ch(left, left_ch);
-	print_vu_meter_ch(right, right_ch);
-	fprintf(stdout, "\033[1A\033[1A");
-}
-
 static void send_to_pipe(int left_ch, int right_ch) {
-	if(vu_resampler > 1) {
-		if(++vu_sample_counter == vu_resampler) {
-			vu_sample_counter = 0;
-		} else {
-			return;
-		}
+	if(fifo_fd == -1) {
+		return;
 	}
-	
-	if(fifo_fd != -1) {
-		unsigned int stereo = left_ch + (right_ch << 16);
-		int n = write(fifo_fd, &stereo, sizeof(stereo));
-		if(show_vu_meter == 1 && n > 0) {
-			print_vu_meter(left_ch, right_ch);
-		}			
-	}	
+	unsigned int stereo = left_ch + (right_ch << 16);
+	int n = write(fifo_fd, &stereo, sizeof(stereo));
+	if(meter_show == 1 && n > 0) {
+		print_vu_meter_ch(left, left_ch);
+		print_vu_meter_ch(right, right_ch);
+		fprintf(stdout, "\033[1A\033[1A");
+	}			
 }
 
-static void clean_pipe(void){	
+static void clean_pipe(void) {	
     send_to_pipe(0, 0);
 }
 
@@ -98,24 +85,18 @@ static void reader_disconnect_handler(void) {
 	}
 }
 
-static int init(
-	const char *fifo_name, 
-	int max_value, 
-	unsigned int resampler,
-	int show_tty_vu_meter)
-{
+static int init(const char *name, int max, int show, int p) {
 	struct sigaction disconnect_action;	
 	memset(&disconnect_action, 0, sizeof(disconnect_action));
     disconnect_action.sa_handler = &reader_disconnect_handler;
 	sigaction(SIGPIPE, &disconnect_action, NULL);
 	
-	int size = strlen(fifo_name);
+	int size = strlen(name);
 	mypipe = (char*)malloc(size + 1);
-	strcpy(mypipe, fifo_name);
+	strcpy(mypipe, name);
 	
-	fifo_max_value = max_value;
-	vu_resampler = resampler;
-	show_vu_meter = show_tty_vu_meter;
+	meter_max = max;
+	meter_show = show;
 	
 	mkfifo(mypipe, 0666);
 	open_pipe();
@@ -123,7 +104,7 @@ static int init(
     return 0;
 }
 
-static void update(int meter_level_l, int meter_level_r){	
+static void update(int meter_level_l, int meter_level_r, snd_pcm_scope_peppyalsa_t *level) {	
 	if(fifo_fd == -1) {
 		open_pipe();
 		if(fifo_fd == -1) {
@@ -131,16 +112,16 @@ static void update(int meter_level_l, int meter_level_r){
 		}			
 	}
 	
-    int left_ch = (meter_level_l / 32767.0f) * fifo_max_value;
-    int right_ch = (meter_level_r / 32767.0f) * fifo_max_value;
+    int left_ch = (meter_level_l / 32767.0f) * meter_max;
+    int right_ch = (meter_level_r / 32767.0f) * meter_max;
     send_to_pipe(left_ch, right_ch);
     
     return;
 }
 
-device fifo(){
-    struct device _fifo;
-    _fifo.init = &init;
-    _fifo.update = &update;
-    return _fifo;
-}
+device meter() {
+    struct device _meter;
+    _meter.init = &init;
+    _meter.update = &update;
+    return _meter;
+};

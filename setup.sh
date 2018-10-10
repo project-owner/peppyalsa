@@ -21,8 +21,8 @@ DISCLAIMER
 
 # script control variables
 
-productname="Pi VU Meter" # the name of the product to install
-scriptname="pivumeter-setup.sh" # the name of this script
+productname="peppyalsa" # the name of the product to install
+scriptname="setup.sh" # the name of this script
 forcesudo="no" # whether the script requires to be ran with root privileges
 promptreboot="no" # whether the script should always prompt user to reboot
 

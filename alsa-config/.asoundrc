@@ -1,9 +1,0 @@
-pcm.!default {
-        type plug
-        slave.pcm "peppyalsa"
-}
-
-ctl.!default {
-        type hw
-        card 0
-}

@@ -27,7 +27,6 @@
 * along with Peppy ALSA Plugin. If not, see 
 * <http://www.gnu.org/licenses/>.
 */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -35,20 +34,20 @@
 #include <errno.h>
 #include <signal.h>
 #include <alsa/asoundlib.h>
-
 #include "peppyalsa.h"
-#include "fifo.h"
+#include "meter.h"
+#include "spectrum.h"
 
-/* milliseconds to go from 32767 to 0 */
-#define DECAY_MS 200
+#define DECAY_MS 400 // milliseconds to go from 32767 to 0
 #define MAX_METERS 2
 
-struct device output_device;
-
+struct device meter_output;
+struct device spectrum_output;
 int num_meters, num_scopes;
+int meter_enabled = -1;
+int spectrum_enabled = -1;
 
-static int level_enable(snd_pcm_scope_t * scope)
-{
+static int level_enable(snd_pcm_scope_t * scope) {
     snd_pcm_scope_peppyalsa_t *level =
         snd_pcm_scope_get_callback_private(scope);
     level->channels =
@@ -61,35 +60,29 @@ static int level_enable(snd_pcm_scope_t * scope)
 
     snd_pcm_scope_set_callback_private(scope, level);
     return (0);
-
 }
 
-static void level_disable(snd_pcm_scope_t * scope)
-{
+static void level_disable(snd_pcm_scope_t * scope) {
     snd_pcm_scope_peppyalsa_t *level =
         snd_pcm_scope_get_callback_private(scope);
 
     if(level->channels) free(level->channels);
 }
 
-static void level_close(snd_pcm_scope_t * scope)
-{
-
+static void level_close(snd_pcm_scope_t * scope) {
     snd_pcm_scope_peppyalsa_t *level =
         snd_pcm_scope_get_callback_private(scope);
     if (level) free(level); 
 }
 
-static void level_start(snd_pcm_scope_t * scope ATTRIBUTE_UNUSED)
-{
+static void level_start(snd_pcm_scope_t * scope ATTRIBUTE_UNUSED) {
     sigset_t s;
     sigemptyset(&s);
     sigaddset(&s, SIGINT);
     pthread_sigmask(SIG_BLOCK, &s, NULL); 
 }
 
-static void level_stop(snd_pcm_scope_t * scope)
-{
+static void level_stop(snd_pcm_scope_t * scope) {
 }
 
 static int get_channel_level(
@@ -131,9 +124,6 @@ static int get_channel_level(
         max_decay_temp = max_decay;
     }
 
-    l->levelchan = lev;
-    l->previous =lev;
-
     return lev;
 }
 
@@ -145,7 +135,8 @@ static void level_update(snd_pcm_scope_t * scope) {
     snd_pcm_uframes_t offset, cont;
     unsigned int channels;
     unsigned int ms;
-    int max_decay, max_decay_temp;
+    int max_decay;
+    int max_decay_temp = 0;
 
     int meter_level_l = 0;
     int meter_level_r = 0; 
@@ -176,8 +167,13 @@ static void level_update(snd_pcm_scope_t * scope) {
         meter_level_r = get_channel_level(1, level, offset, size1, size2, max_decay, max_decay_temp);
     }
 
-    output_device.update(meter_level_l, meter_level_r);
-
+	if(meter_enabled == 1) {
+		meter_output.update(meter_level_l, meter_level_r, level);
+	}
+	if(spectrum_enabled == 1) {
+		spectrum_output.update(meter_level_l, meter_level_r, level);
+	}
+    
     level->old = snd_pcm_meter_get_now(pcm);
 }
 
@@ -201,10 +197,6 @@ enable:level_enable,
 int snd_pcm_scope_peppyalsa_open(snd_pcm_t * pcm,
         const char *name,
         unsigned int decay_ms,
-        const char *fifo_vu_name,
-        int fifo_vu_max_value,
-        unsigned int resampler,
-        int show_tty_vu_meter,
         snd_pcm_scope_t ** scopep)
 {
     snd_pcm_scope_t *scope, *s16;
@@ -220,11 +212,6 @@ int snd_pcm_scope_peppyalsa_open(snd_pcm_t * pcm,
     }
     level->pcm = pcm;
     level->decay_ms = decay_ms;
-    level->fifo_vu_name = strdup(fifo_vu_name);
-    level->fifo_vu_max_value = fifo_vu_max_value;
-    level->fifo_vu_resampler = resampler;
-    level->show_tty_vu_meter = show_tty_vu_meter;
-    
     s16 = snd_pcm_meter_search_scope(pcm, "s16");
     if (!s16) {
         err = snd_pcm_scope_s16_open(pcm, "s16", &s16);
@@ -254,15 +241,19 @@ int _snd_pcm_scope_peppyalsa_open(
     snd_config_iterator_t i, next;
     snd_pcm_scope_t *scope;
     long decay_ms = -1;
-    const char *fifo_vu_name = "";
-    int fifo_vu_max_value = -1;
-    unsigned int fifo_vu_resampler = 0;
-    int show_tty_vu_meter = -1;
-    int err;
+    int err; 
+    
+    const char *meter_fifo = "";
+    int meter_max = -1;
+    int meter_show = -1;
+    
+    const char *spectrum_fifo = "";
+    int spectrum_max = -1;
+    int spectrum_size = -1;  
 
     num_meters = MAX_METERS;
     num_scopes = MAX_METERS;
-
+    
     snd_config_for_each(i, next, conf) {
         snd_config_t *n = snd_config_iterator_entry(i);
         const char *id;
@@ -280,38 +271,55 @@ int _snd_pcm_scope_peppyalsa_open(
             }
             continue;
         }
-        if (strcmp(id, "fifo_vu_name") == 0) {
-            err = snd_config_get_string(n, &fifo_vu_name);
-            if (err < 0) {
-                SNDERR("Invalid type for %", id);
+        if (strcmp(id, "meter") == 0) {
+			err = snd_config_get_string(n, &meter_fifo);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
                 return -EINVAL;  
             }
             continue;
         }
-        if (strcmp(id, "fifo_vu_max_value") == 0) {
-            err = snd_config_get_integer(n, &fifo_vu_max_value);
+        if (strcmp(id, "meter_max") == 0) {
+            err = snd_config_get_integer(n, &meter_max);
             if (err < 0) {
-                SNDERR("Invalid type for %", id);
+                SNDERR("Invalid type for %s", id);
                 return -EINVAL;
             }
             continue;
         }
-        if (strcmp(id, "fifo_vu_resampler") == 0) {
-            err = snd_config_get_integer(n, &fifo_vu_resampler);
+        if (strcmp(id, "meter_show") == 0) {
+            err = snd_config_get_integer(n, &meter_show);
             if (err < 0) {
-                SNDERR("Invalid type for %", id);
+                SNDERR("Invalid type for %s", id);
                 return -EINVAL;
             }
             continue;
         }
-        if (strcmp(id, "show_tty_vu_meter") == 0) {
-            err = snd_config_get_integer(n, &show_tty_vu_meter);
-            if (err < 0) {
-                SNDERR("Invalid type for %", id);
-                return -EINVAL;
+        if (strcmp(id, "spectrum") == 0) {
+			err = snd_config_get_string(n, &spectrum_fifo);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;  
             }
             continue;
         }
+        if (strcmp(id, "spectrum_max") == 0) {
+			err = snd_config_get_integer(n, &spectrum_max);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;  
+            }
+            continue;
+        }
+        if (strcmp(id, "spectrum_size") == 0) {
+			err = snd_config_get_integer(n, &spectrum_size);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;  
+            }
+            continue;
+        }
+        
         SNDERR("Unknown field %s", id);
         return -EINVAL;
     }
@@ -319,29 +327,39 @@ int _snd_pcm_scope_peppyalsa_open(
     if (decay_ms < 0) {
         decay_ms = DECAY_MS;
     }
-    if (strlen(fifo_vu_name) == 0) {
-        fifo_vu_name = DEFAULT_FIFO_VU_NAME;
+    if (meter_max < 0) {
+		meter_max = DEFAULT_METER_MAX;
     }
-	if (fifo_vu_max_value < 0) {
-		fifo_vu_max_value = DEFAULT_FIFO_MAX_VALUE;
+    if (meter_show == -1) {
+		meter_show = 0;
     }
-    if (fifo_vu_resampler == 0) {
-		fifo_vu_resampler = DEFAULT_FIFO_RESAMPLER;
+    if (spectrum_max < 0) {
+		spectrum_max = DEFAULT_SPECTRUM_MAX;
     }
-    if (show_tty_vu_meter == -1) {
-		show_tty_vu_meter = 0;
+    if (spectrum_size < 0) {
+		spectrum_size = DEFAULT_SPECTRUM_SIZE;
     }
-
-    output_device = fifo();
-    output_device.init(fifo_vu_name, fifo_vu_max_value, fifo_vu_resampler, show_tty_vu_meter);
+    
+    if (strlen(meter_fifo) == 0 && strlen(spectrum_fifo) == 0) {
+        SNDERR("No output device found");
+        return -EINVAL;
+    }
+    
+    if (strlen(meter_fifo) != 0) {
+		meter_output = meter();
+		meter_output.init(meter_fifo, meter_max, meter_show, -1);
+		meter_enabled = 1;
+	}
+	
+	if (strlen(spectrum_fifo) != 0) {
+		spectrum_output = spectrum();
+		spectrum_output.init(spectrum_fifo, spectrum_max, -1, spectrum_size);
+		spectrum_enabled = 1;
+	}
 
     return snd_pcm_scope_peppyalsa_open(
             pcm,
             name, 
             decay_ms,
-            fifo_vu_name,
-            fifo_vu_max_value,
-            fifo_vu_resampler,
-            show_tty_vu_meter,
             &scope);
 }

@@ -42,7 +42,7 @@
 
 static char *left =  "L: ";
 static char *right = "R: ";
-static char DEFAULT_FIFO_VU_NAME[] = "/home/pi/myfifo";
+static char DEFAULT_METER_NAME[] = "/home/pi/myfifo";
 
 static void print_vu_meter_ch(char *label, int value) {
 	int size = LINE_LENGTH;
@@ -70,10 +70,10 @@ static void handle_ctrl_c(int n) {
 
 int main(int argc,char* argv[]) {
 	char *mypipe = "";
-	printf("Peppy ALSA Client. Goya Edition. 2018/09/03\n");
+	printf("Peppy ALSA Client. Goya Edition. 2018/09/08\n");
 	if(argc == 1) {
-        printf("No pipe name provided, defaulting to %s\n", DEFAULT_FIFO_VU_NAME);
-        mypipe  = DEFAULT_FIFO_VU_NAME;
+        printf("No pipe name provided, defaulting to %s\n", DEFAULT_METER_NAME);
+        mypipe  = DEFAULT_METER_NAME;
 	} else if(argc == 2) {
 		printf("Using provided pipe name %s\n", argv[1]);
 		mypipe  = argv[1];
