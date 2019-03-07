@@ -108,6 +108,9 @@ static int get_channel_level(
         ptr++;
     }
 
+	if (size2 > offset) {
+		size2 = offset;
+	}
     ptr = snd_pcm_scope_s16_get_channel_buffer(level->s16, channel);
     for (n = size2; n > 0; n--) {
         s = *ptr;
