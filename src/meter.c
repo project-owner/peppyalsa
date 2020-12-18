@@ -53,8 +53,9 @@ static void print_vu_meter_ch(char *label, int value) {
 	int size = LINE_LENGTH;
 	int v = (int)(value/100.0 * size);
 	char ch[LINE_LENGTH + 1] = "";
-	
-	for(int n=0; n < size; n++) {
+	int n;
+
+	for(n=0; n < size; n++) {
 		ch[n] = (n < v) ? '=' : ' ';
 	}
 	fprintf(stdout, "%s%s\n", label, ch);
