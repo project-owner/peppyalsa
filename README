@@ -1,7 +1,7 @@
 ## Hiroshige Edition 2021.04.17
 
 Included the code implemented by Tobias Dyballa. The changes improve the Spectrum Analyzer functionality:
-* The signal amplitude and horizontal scale can be either linear or logrithmic now.
+* The signal amplitude and horizontal scale can be either linear or logarithmic now.
 * The signal can be smoothed across frequency bands by changing the smoothing factor configuration parameter.
 * The FFT window function can be selected from three types: Hann, Hamming and Blackman.
 
