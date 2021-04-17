@@ -1,7 +1,10 @@
 /*
-* Copyright 2018 Peppy ALSA Plugin peppy.player@gmail.com
+* Copyright 2018-2021 Peppy ALSA Plugin peppy.player@gmail.com
 * 
 * This file is the part of the Peppy ALSA Plugin project.
+*
+* The changes in the Spectrum Analyzer code.
+*   Copyright (c) 2021 by Tobias Dyballa <nixiepeppy@gmail.com>
 *
 * The Peppy ALSA Plugin project was derived from the project 'pivumeter'
 *   pivumeter: level meter ALSA plugin for Raspberry Pi HATs and pHATs
@@ -46,7 +49,7 @@ typedef struct _snd_pcm_scope_peppyalsa {
 } snd_pcm_scope_peppyalsa_t;
 
 typedef struct device {
-	int (*init)(const char *name, int max, int show, int size);
+	int (*init)(const char *name, int max, int show, int size, int log_f, int log_y, int smooth_f, int window);
 	void (*update)(int left, int right, snd_pcm_scope_peppyalsa_t *level);
 } device;
 #endif

@@ -1,7 +1,10 @@
 /*
-* Copyright 2018 Peppy ALSA Plugin peppy.player@gmail.com
+* Copyright 2018-2021 Peppy ALSA Plugin peppy.player@gmail.com
 * 
 * This file is the part of the Peppy ALSA Plugin project.
+*
+* The changes in the Spectrum Analyzer code.
+*   Copyright (c) 2021 by Tobias Dyballa <nixiepeppy@gmail.com>
 *
 * The Peppy ALSA Plugin project was derived from the project 'pivumeter'
 *   pivumeter: level meter ALSA plugin for Raspberry Pi HATs and pHATs
@@ -27,6 +30,7 @@
 * along with Peppy ALSA Plugin. If not, see 
 * <http://www.gnu.org/licenses/>.
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -252,7 +256,11 @@ int _snd_pcm_scope_peppyalsa_open(
     
     const char *spectrum_fifo = "";
     int spectrum_max = -1;
-    int spectrum_size = -1;  
+    int spectrum_size = -1;
+    int log_f = -1;
+    int log_y = -1;
+    int s_factor = -1;
+    int window = -1;
 
     num_meters = MAX_METERS;
     num_scopes = MAX_METERS;
@@ -278,7 +286,7 @@ int _snd_pcm_scope_peppyalsa_open(
 			err = snd_config_get_string(n, &meter_fifo);
 			if (err < 0) {
                 SNDERR("Invalid type for %s", id);
-                return -EINVAL;  
+                return -EINVAL;
             }
             continue;
         }
@@ -302,7 +310,7 @@ int _snd_pcm_scope_peppyalsa_open(
 			err = snd_config_get_string(n, &spectrum_fifo);
 			if (err < 0) {
                 SNDERR("Invalid type for %s", id);
-                return -EINVAL;  
+                return -EINVAL;
             }
             continue;
         }
@@ -310,7 +318,7 @@ int _snd_pcm_scope_peppyalsa_open(
 			err = snd_config_get_integer(n, &spectrum_max);
 			if (err < 0) {
                 SNDERR("Invalid type for %s", id);
-                return -EINVAL;  
+                return -EINVAL;
             }
             continue;
         }
@@ -318,11 +326,45 @@ int _snd_pcm_scope_peppyalsa_open(
 			err = snd_config_get_integer(n, &spectrum_size);
 			if (err < 0) {
                 SNDERR("Invalid type for %s", id);
-                return -EINVAL;  
+                return -EINVAL;
             }
             continue;
         }
-        
+        if (strcmp(id, "logarithmic_frequency") == 0) {
+			err = snd_config_get_integer(n, &log_f);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;
+            }
+            continue;
+        }
+        if (strcmp(id, "logarithmic_amplitude") == 0) {
+			err = snd_config_get_integer(n, &log_y);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;
+            }
+            continue;
+        }
+
+		if (strcmp(id, "smoothing_factor") == 0) {
+			err = snd_config_get_integer(n, &s_factor);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;
+            }
+            continue;
+        }
+
+		if (strcmp(id, "window") == 0) {
+			err = snd_config_get_integer(n, &window);
+			if (err < 0) {
+                SNDERR("Invalid type for %s", id);
+                return -EINVAL;
+            }
+            continue;
+        }
+
         SNDERR("Unknown field %s", id);
         return -EINVAL;
     }
@@ -342,6 +384,22 @@ int _snd_pcm_scope_peppyalsa_open(
     if (spectrum_size < 0) {
 		spectrum_size = DEFAULT_SPECTRUM_SIZE;
     }
+    else if (spectrum_size > 256) {
+		spectrum_size = 256;
+    }
+    if (log_f < 0) {
+		log_f = DEFAULT_LOG_F;
+    }
+    if (log_y < 0) {
+		log_y = DEFAULT_LOG_Y;
+    }
+
+    if (s_factor < 0 || s_factor > 100) {
+		s_factor = DEFAULT_SMOOTH_F;
+    }
+    if (window < 0) {
+		window = DEFAULT_WINDOW;
+    }
     
     if (strlen(meter_fifo) == 0 && strlen(spectrum_fifo) == 0) {
         SNDERR("No output device found");
@@ -350,13 +408,13 @@ int _snd_pcm_scope_peppyalsa_open(
     
     if (strlen(meter_fifo) != 0) {
 		meter_output = meter();
-		meter_output.init(meter_fifo, meter_max, meter_show, -1);
+		meter_output.init(meter_fifo, meter_max, meter_show, -1, -1, -1, -1, -1);
 		meter_enabled = 1;
 	}
 	
 	if (strlen(spectrum_fifo) != 0) {
 		spectrum_output = spectrum();
-		spectrum_output.init(spectrum_fifo, spectrum_max, -1, spectrum_size);
+		spectrum_output.init(spectrum_fifo, spectrum_max, -1, spectrum_size, log_f, log_y, s_factor, window);
 		spectrum_enabled = 1;
 	}
 

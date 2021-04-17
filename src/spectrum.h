@@ -1,7 +1,10 @@
 /*
-* Copyright 2018 Peppy ALSA Plugin peppy.player@gmail.com
+* Copyright 2018-2021 Peppy ALSA Plugin peppy.player@gmail.com
 * 
 * This file is the part of the Peppy ALSA Plugin project.
+*
+* The changes in the Spectrum Analyzer code.
+*   Copyright (c) 2021 by Tobias Dyballa <nixiepeppy@gmail.com>
 *
 * The Peppy ALSA Plugin project was derived from the project 'pivumeter'
 *   pivumeter: level meter ALSA plugin for Raspberry Pi HATs and pHATs
@@ -31,6 +34,10 @@
 #include "peppyalsa.h"
 
 #define DEFAULT_SPECTRUM_MAX 100
-#define DEFAULT_SPECTRUM_SIZE 11
+#define DEFAULT_SPECTRUM_SIZE 30
+#define DEFAULT_LOG_F 1
+#define DEFAULT_LOG_Y 1
+#define DEFAULT_SMOOTH_F 50
+#define DEFAULT_WINDOW 3
 
 device spectrum();
