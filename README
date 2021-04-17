@@ -1,11 +1,15 @@
-Peppy ALSA Plugin
+## Hiroshige Edition 2021.04.17
 
-This is ALSA plugin with the following functionality:
-- Sends VU Meter data to the named pipe. The default pipe name is 
-  /home/pi/myfifo
-- Sends Spectrum Analizer data to the named pipe. The default pipe name
-  is /home/pi/myfifosa
+Included the code implemented by Tobias Dyballa. The changes improve the Spectrum Analyzer functionality:
+* The signal amplitude and horizontal scale can be either linear or logrithmic now.
+* The signal can be smoothed across frequency bands by changing the smoothing factor configuration parameter.
+* The FFT window function can be selected from three types: Hann, Hamming and Blackman.
 
-More details can be found on the following wiki pages:
+## Goya Edition 2018.10.10
+
+The first release of the Peppy ALSA Plugin. The plugin has the following functionality:
+* Sends VU Meter data to the named pipe. The default pipe name is **/home/pi/myfifo**
+* Sends Spectrum Analizer data to the named pipe. The default pipe name is **/home/pi/myfifosa**
+
+More details about the plugin can be found on the following wiki pages:
 https://github.com/project-owner/peppyalsa.doc/wiki
-  
