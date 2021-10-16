@@ -1,3 +1,7 @@
+## Renoir Edition 2021.10.16
+
+Fixed a bug in the Spectrum Analyzer.
+
 ## Hiroshige Edition 2021.04.17
 
 Included the code implemented by Tobias Dyballa. The changes improve the Spectrum Analyzer functionality:

@@ -186,7 +186,7 @@ static void update(int meter_level_l, int meter_level_r, snd_pcm_scope_peppyalsa
 				unsigned int x;
 				double y = 0;
 				for(x = bins[m]; x < bins[m+1]; x++) {
-					y = y + (double)sqrt(pow(output_buffer[m][ 0 ], 2) + pow( output_buffer[m][ 1 ], 2));
+					y = y + (double)sqrt(pow(output_buffer[x][ 0 ], 2) + pow( output_buffer[x][ 1 ], 2));
 				}
 				y = y / input_size;
 				if (y > 65535) {y = 65535;}
