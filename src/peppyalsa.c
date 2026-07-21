@@ -41,6 +41,7 @@
 #include "peppyalsa.h"
 #include "meter.h"
 #include "spectrum.h"
+#include "dop.h"
 
 #define DECAY_MS 400 // milliseconds to go from 32767 to 0
 #define MAX_METERS 2
@@ -95,7 +96,7 @@ static int get_channel_level(
 	snd_pcm_uframes_t offset, 
 	snd_pcm_uframes_t size1, 
 	snd_pcm_uframes_t size2,
-    int max_decay, int max_decay_temp)
+    int max_decay, int max_decay_temp, int is_dop)
 {
     int16_t *ptr;
     int s, lev = 0;
@@ -103,8 +104,14 @@ static int get_channel_level(
     snd_pcm_scope_peppyalsa_channel_t *l;
     l = &level->channels[channel];
 
-    // Iterate through the channel buffer and find the highest level value
     ptr = snd_pcm_scope_s16_get_channel_buffer(level->s16, channel) + offset;
+
+    if (is_dop) {
+        lev = dop_level(ptr, size1);
+        goto decay;
+    }
+
+    // Iterate through the channel buffer and find the highest level value
     for (n = size1; n > 0; n--) {
         s = *ptr;
         if (s < 0) s = -s;
@@ -123,6 +130,7 @@ static int get_channel_level(
         ptr++;
     }
     
+decay:
     /* limit the decay */
     if (lev < l->levelchan) {     
         /* make max_decay go lower with level */
@@ -144,6 +152,7 @@ static void level_update(snd_pcm_scope_t * scope) {
     unsigned int ms;
     int max_decay;
     int max_decay_temp = 0;
+    int is_dop;
 
     int meter_level_l = 0;
     int meter_level_r = 0; 
@@ -164,14 +173,24 @@ static void level_update(snd_pcm_scope_t * scope) {
     ms = size * 1000 / snd_pcm_meter_get_rate(pcm);
     max_decay = 32768 * ms / level->decay_ms;
 
+    dop_set_rate(snd_pcm_meter_get_rate(pcm));
+
     channels = snd_pcm_meter_get_channels(pcm);
 
     if(channels > 2){channels = 2;}
 
-    meter_level_l = get_channel_level(0, level, offset, size1, size2, max_decay, max_decay_temp);
+    /* Probe for DoP once per update on the left buffer and share the verdict with
+       both channels: DoP is a property of the stream, not of the channel. It is
+       re-probed every update rather than latched, because DoP and PCM are
+       indistinguishable at the same rate (DSD64 looks like 176.4 kHz PCM), so a
+       latch could miss a DoP track following a same-rate PCM one on a gapless output. */
+    is_dop = dop_is_stream(
+        snd_pcm_scope_s16_get_channel_buffer(level->s16, 0) + offset, size1);
+
+    meter_level_l = get_channel_level(0, level, offset, size1, size2, max_decay, max_decay_temp, is_dop);
     meter_level_r = meter_level_l;
     if(channels > 1){
-        meter_level_r = get_channel_level(1, level, offset, size1, size2, max_decay, max_decay_temp);
+        meter_level_r = get_channel_level(1, level, offset, size1, size2, max_decay, max_decay_temp, is_dop);
     }
 
 	if(meter_enabled == 1) {
