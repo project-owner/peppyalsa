@@ -251,16 +251,16 @@ int _snd_pcm_scope_peppyalsa_open(
     int err; 
     
     const char *meter_fifo = "";
-    int meter_max = -1;
-    int meter_show = -1;
-    
+    long meter_max = -1;
+    long meter_show = -1;
+
     const char *spectrum_fifo = "";
-    int spectrum_max = -1;
-    int spectrum_size = -1;
-    int log_f = -1;
-    int log_y = -1;
-    int s_factor = -1;
-    int window = -1;
+    long spectrum_max = -1;
+    long spectrum_size = -1;
+    long log_f = -1;
+    long log_y = -1;
+    long s_factor = -1;
+    long window = -1;
 
     num_meters = MAX_METERS;
     num_scopes = MAX_METERS;

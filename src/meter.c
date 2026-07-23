@@ -79,15 +79,23 @@ static void clean_pipe(void) {
     send_to_pipe(0, 0);
 }
 
-static void reader_disconnect_handler(void) {
+static void reader_disconnect_handler(int signum) {
+	(void)signum;
 	if(fifo_fd != -1) {
 		close(fifo_fd);
 		fifo_fd = -1;
 	}
 }
 
-static int init(const char *name, int max, int show, int p) {
-	struct sigaction disconnect_action;	
+static int init(const char *name, int max, int show,
+                int spectrum_max, int spectrum_size,
+                int log_f, int log_y, int window) {
+	(void)spectrum_max;
+	(void)spectrum_size;
+	(void)log_f;
+	(void)log_y;
+	(void)window;
+	struct sigaction disconnect_action;
 	memset(&disconnect_action, 0, sizeof(disconnect_action));
     disconnect_action.sa_handler = &reader_disconnect_handler;
 	sigaction(SIGPIPE, &disconnect_action, NULL);
