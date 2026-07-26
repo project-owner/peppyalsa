@@ -81,7 +81,8 @@ static void cleanup(void) {
 	send_to_pipe(0);
 }
 
-static void reader_disconnect_handler(void) {
+static void reader_disconnect_handler(int signum) {
+	(void)signum;
 	if(fifo_fd_sa != -1) {
 		close(fifo_fd_sa);
 		fifo_fd_sa = -1;
