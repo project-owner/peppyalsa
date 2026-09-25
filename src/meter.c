@@ -91,8 +91,14 @@ static void send_to_pipe(int left_ch, int right_ch) {
 	}			
 }
 
-static void clean_pipe(void) {	
-    send_to_pipe(0, 0);
+/* Registered with atexit() from a shared object, this also runs when the
+ * host unloads the library. Some players do that on every device close,
+ * so the descriptor has to be released here or it leaks once per open. */
+static void clean_pipe(void) {
+	send_to_pipe(0, 0);
+	close_pipe();
+	free(mypipe);
+	mypipe = NULL;
 }
 
 /* The host creates one scope per PCM it opens. The pipe state is

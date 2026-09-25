@@ -88,6 +88,9 @@ static void send_to_pipe(unsigned int value) {
 	}
 }
 
+/* Registered with atexit() from a shared object, this also runs when the
+ * host unloads the library. Some players do that on every device close,
+ * so the descriptor has to be released here or it leaks once per open. */
 static void cleanup(void) {
 	if(plan != NULL) {
 		fftw_destroy_plan(plan);
@@ -98,6 +101,9 @@ static void cleanup(void) {
 	fftw_free(output_buffer);
 	output_buffer = NULL;
 	send_to_pipe(0);
+	close_pipe();
+	free(mypipesa);
+	mypipesa = NULL;
 }
 
 /* The host creates one scope per PCM it opens. The pipe, the FFT plan
