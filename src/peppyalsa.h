@@ -52,4 +52,9 @@ typedef struct device {
 	int (*init)(const char *name, int max, int show, int size, int log_f, int log_y, int smooth_f, int window);
 	void (*update)(int left, int right, snd_pcm_scope_peppyalsa_t *level);
 } device;
+
+/* Make a FIFO write with no reader report EPIPE instead of terminating the
+ * host. Only the default action is replaced; a host that already ignores
+ * or handles SIGPIPE is left alone. */
+void peppyalsa_ignore_sigpipe(void);
 #endif
