@@ -33,19 +33,29 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "peppyalsa.h"
 
-static char *mypipe;
+static char *mypipe = NULL;
 static int fifo_fd = -1;
 static int meter_max;
 static int meter_show = 0;
+static int exit_hook_set = 0;
 static char *left =  "L: ";
 static char *right = "R: ";
 
 #define LINE_LENGTH 76
 
-static void open_pipe() {
+static void close_pipe(void) {
+	if(fifo_fd != -1) {
+		close(fifo_fd);
+		fifo_fd = -1;
+	}
+}
+
+static void open_pipe(void) {
+	close_pipe();
 	fifo_fd = open(mypipe, O_WRONLY | O_NONBLOCK);
 }
 
@@ -68,6 +78,12 @@ static void send_to_pipe(int left_ch, int right_ch) {
 	}
 	unsigned int stereo = left_ch + (right_ch << 16);
 	int n = write(fifo_fd, &stereo, sizeof(stereo));
+	if(n < 0 && errno == EPIPE) {
+		/* The reader is gone. Drop the descriptor; update() opens it again
+		 * once a reader is back. A full pipe (EAGAIN) is not an error. */
+		close_pipe();
+		return;
+	}
 	if(meter_show == 1 && n > 0) {
 		print_vu_meter_ch(left, left_ch);
 		print_vu_meter_ch(right, right_ch);
@@ -75,18 +91,19 @@ static void send_to_pipe(int left_ch, int right_ch) {
 	}			
 }
 
-static void clean_pipe(void) {	
-    send_to_pipe(0, 0);
+/* Registered with atexit() from a shared object, this also runs when the
+ * host unloads the library. Some players do that on every device close,
+ * so the descriptor has to be released here or it leaks once per open. */
+static void clean_pipe(void) {
+	send_to_pipe(0, 0);
+	close_pipe();
+	free(mypipe);
+	mypipe = NULL;
 }
 
-static void reader_disconnect_handler(int signum) {
-	(void)signum;
-	if(fifo_fd != -1) {
-		close(fifo_fd);
-		fifo_fd = -1;
-	}
-}
-
+/* The host creates one scope per PCM it opens. The pipe state is
+ * process-wide, so a later init() reuses the open descriptor and the
+ * exit hook instead of stacking new ones. */
 static int init(const char *name, int max, int show,
                 int spectrum_max, int spectrum_size,
                 int log_f, int log_y, int window) {
@@ -95,22 +112,30 @@ static int init(const char *name, int max, int show,
 	(void)log_f;
 	(void)log_y;
 	(void)window;
-	struct sigaction disconnect_action;
-	memset(&disconnect_action, 0, sizeof(disconnect_action));
-    disconnect_action.sa_handler = &reader_disconnect_handler;
-	sigaction(SIGPIPE, &disconnect_action, NULL);
-	
-	int size = strlen(name);
-	mypipe = (char*)malloc(size + 1);
-	strcpy(mypipe, name);
-	
+
+	peppyalsa_ignore_sigpipe();
+
 	meter_max = max;
 	meter_show = show;
-	
-	mkfifo(mypipe, 0666);
-	open_pipe();
-    atexit(clean_pipe);
-    return 0;
+
+	if(mypipe == NULL || strcmp(mypipe, name) != 0) {
+		free(mypipe);
+		mypipe = (char*)malloc(strlen(name) + 1);
+		if(mypipe == NULL) {
+			return -1;
+		}
+		strcpy(mypipe, name);
+		mkfifo(mypipe, 0666);
+		close_pipe();
+	}
+	if(fifo_fd == -1) {
+		open_pipe();
+	}
+	if(!exit_hook_set) {
+		atexit(clean_pipe);
+		exit_hook_set = 1;
+	}
+	return 0;
 }
 
 static void update(int meter_level_l, int meter_level_r, snd_pcm_scope_peppyalsa_t *level) {	

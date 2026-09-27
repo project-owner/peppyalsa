@@ -52,6 +52,21 @@ int num_meters, num_scopes;
 int meter_enabled = -1;
 int spectrum_enabled = -1;
 
+void peppyalsa_ignore_sigpipe(void) {
+    struct sigaction current;
+    struct sigaction ignore;
+
+    if (sigaction(SIGPIPE, NULL, &current) != 0) {
+        return;
+    }
+    if (current.sa_handler != SIG_DFL) {
+        return;
+    }
+    memset(&ignore, 0, sizeof(ignore));
+    ignore.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &ignore, NULL);
+}
+
 static int level_enable(snd_pcm_scope_t * scope) {
     snd_pcm_scope_peppyalsa_t *level =
         snd_pcm_scope_get_callback_private(scope);
